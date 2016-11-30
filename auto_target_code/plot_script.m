@@ -30,6 +30,11 @@ for i = 1:length(guard_target_struct(1).bot_x)
     bot_nam{i} = sprintf('  B%d',i);
 
 end
+%%
+bot_x = guard_target_struct(1).bot_x ;
+bot_y = guard_target_struct(1).bot_y ;
+
+
 
 
 %%

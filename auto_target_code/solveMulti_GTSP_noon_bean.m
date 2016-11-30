@@ -278,26 +278,41 @@ function [ outfin_sol, outfin_cost, Out_solName, whole_path_nodes,G_init, G_node
     str_f_cell = cell(num_bots,1);
 
     for i = 1: length(Cluster_to_node)
-        log_ind_clus(:,i) = cell2mat(cellfun(@(x) isequal(sprintf('-%d', i),x(regexp(x,'-','start'):end)), edge_table.EndNodes(:,2), 'uni', 0 ));
-        cur_clus_ind = log_ind_clus(:,i) & zero_weight_ind;
-        cur_clus_cell{1,i} = edge_table.EndNodes(cur_clus_ind==1, 1); % cell containing names of all the nodes in cluster i connected in a cycle
+        log_ind_clus(:,i) = cell2mat(cellfun(@(x) isequal(sprintf('-%d', i),x(regexp(x,'-','start'):end)), edge_table.EndNodes(:,2), 'uni', 0 )); % index belonging to cluster i 
+        cur_clus_ind = log_ind_clus(:,i) & zero_weight_ind; % edges having zeros cost and belonging to clus i
         
-        for j = 1:num_bots
-            
-            % this time as we have edges from all nodes to all finish
-            % depots, we don't need to tail shift but only assign costs of
-            % current edge to the previous edge. 
-            weight_vec_cell{j,1} = ...
-            circshift(G_nodebot_comp.Edges.Weight(findedge(G_nodebot_comp, cellfun(@(x) sprintf('B%d', j), cur_clus_cell{1,i},'uni', 0), cellfun(@(x) x(1:(regexp(x,'-','start')-1)) , cur_clus_cell{1,i},'uni',0))),-1); 
-            
-            str_f_cell{j, 1} = cellfun(@(x) sprintf('B%d-f', j), cur_clus_cell{1,i},'uni', 0);
+        if(sum(cur_clus_ind)~=0)
+            cur_clus_cell{1,i} = edge_table.EndNodes(cur_clus_ind==1, 1); % cell containing names of all the nodes in cluster i connected in a cycle
+
+            for j = 1:num_bots
+
+                % this time as we have edges from all nodes to all finish
+                % depots, we don't need to tail shift but only assign costs of
+                % current edge to the previous edge. 
+                weight_vec_cell{j,1} = ...
+                circshift(G_nodebot_comp.Edges.Weight(findedge(G_nodebot_comp, cellfun(@(x) sprintf('B%d', j), cur_clus_cell{1,i},'uni', 0), cellfun(@(x) x(1:(regexp(x,'-','start')-1)) , cur_clus_cell{1,i},'uni',0))),-1); 
+                % find edges from Bi to V1(all parts of cur_clus_cell) and
+                % shift their weights
+                str_f_cell{j, 1} = cellfun(@(x) sprintf('B%d-f', j), cur_clus_cell{1,i},'uni', 0);
 
 
+            end
+
+            concat_f_cell = [str_f_cell{:,:}];
+            concat_w_cell = [weight_vec_cell{:,:}];
+            G_atsp = addedge(G_atsp, repmat(cur_clus_cell{1,i}, num_bots, 1), concat_f_cell(:), [concat_w_cell(:)]); 
+        elseif(sum(cur_clus_ind)==0)
+            for j = 1:num_bots  
+                lonely_node_name =  edge_table.EndNodes(log_ind_clus(:,i),2); % this node is a single node in a cluster
+                weight_vec_cell{j,1} = G_nodebot_comp.Edges.Weight(findedge(G_nodebot_comp, sprintf('B%d', j), lonely_node_name{1}(1:(regexp(lonely_node_name{1},'-','start')-1))));
+                str_f_cell{j, 1} = {sprintf('B%d-f', j)};
+            end
+            
+            concat_f_cell = [str_f_cell{:,:}];
+            concat_w_cell = [weight_vec_cell{:,:}];
+            G_atsp = addedge(G_atsp, repmat(lonely_node_name(1), num_bots, 1), concat_f_cell(:), [concat_w_cell(:)]); 
+            
         end
-
-        concat_f_cell = [str_f_cell{:,:}];
-        concat_w_cell = [weight_vec_cell{:,:}];
-        G_atsp = addedge(G_atsp, repmat(cur_clus_cell{1,i}, num_bots, 1), concat_f_cell(:), [concat_w_cell(:)]); 
 
     end
 
